@@ -21,53 +21,58 @@ This scheme requires the following options:
 #####  Using Token
 ```javascript
 var Hapi = require('hapi');
-var server = new Hapi.Server();
+var server = new Hapi.Server(8088);
+var bearer = require('hapi-auth-bearer');
 
 var credentials = {
-  someSuperSecureToken: {
-    user: { /** ... */ }
-  }
+    someSuperSecureToken: {
+        user: {
+            "Name": "Username",
+            "token": "someSuperSecureToken"
+        }
+    }
 };
 
 var validateFunc = function (token, callback) {
-  if (!credentials[token]) {
-    callback(null, null);
-  } else {
-    callback(null, credentials[token]);
-  }
+    console.log(token)
+    console.log(credentials[token])
+    var result = credentials[token]
+    if (!!result) {
+        callback(null, result['user']);
+    } else {
+        callback(null, null);
+    }
 };
 
-server.pack.require('hapi-auth-bearer', function (err) {
-  server.auth.strategy('bearer', 'bearer', { validateFunc: validateFunc });
-});
-
-```
-
-#####  Using Base64 (secret & token)
-```javascript
-var Hapi = require('hapi');
-var server = new Hapi.Server();
-
-var credentials = {
-  shhImASecret: {
-    token: 'someSuperSecureToken',
-    user: { /** ... */ }
-  }
-};
-
-var validateFunc = function (secret, token, callback) {
-  if (!credentials[secret] || credentials[secret].token !== token) {
-    callback(null, null);
-  } {
-    callback(null, credentials[secret]);
-  }
-};
-
-server.pack.require('hapi-auth-bearer', function (err) {
-  server.auth.strategy('bearer-base64', 'bearer', {
-    base64: true,
-    validateFunc: validateFunc
-  });
+server.pack.register(bearer, function (err) {
+    if (err) {
+        console.log(err);
+    }
+    server.auth.strategy('bearer', 'bearer', {
+        validateFunc: validateFunc
+    });
+    server.route([
+        {
+            method: ['GET', 'POST'],
+            path: '/login',
+            config: {
+                handler: function (request, reply) {
+                    reply("Hello")
+                },
+                auth: {
+                    strategy: 'bearer'
+                },
+                plugins: {
+                    'hapi-auth-bearer': {
+                        redirectTo: false
+                    }
+                }
+            }
+        }
+    ]);
+    server.start(function () {
+        console.log('Server running at:', server.info.uri);
+    })
 });
 
 ```
